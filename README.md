@@ -92,16 +92,17 @@ mise run sandbox:reset
 
 ```mermaid
 flowchart LR
-    subgraph Host["Host laptop (offline)"]
+    subgraph Host["Host laptop (offline): repo, Ollama, sink, auditor"]
         Ollama[("Ollama :11434<br/>local model")]
         Sink["Exfil sink :8080"]
         UI["Auditor UI :8501 (browser)"]
+        A1["Act 1: Google ADK agent<br/>runs directly on host, no sandbox"]
+        subgraph Sandbox["Sandbox (Act 2 only):<br/>bwrap namespace + OpenShell policy"]
+            A2["Google ADK agent<br/>same code, same prompt"]
+        end
     end
     Config["workspace/config/app-settings.yaml"]
     Secret["workspace/secrets/gcp-sa-key.json"]
-
-    A1["Act 1: Google ADK agent<br/>no sandbox"]
-    A2["Act 2: same agent in Sandbox<br/>OpenShell policy + bwrap runtime"]
 
     A1 -->|"reads"| Config
     A1 -->|"reads the key"| Secret
