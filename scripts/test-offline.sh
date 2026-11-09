@@ -153,17 +153,18 @@ else
     warn "Streamlit Visual Auditor not responding on :8501 (run 'mise run auditor:start')"
 fi
 
-if bash "${REPO_ROOT}/2-governed/run.sh" >/tmp/preflight-governed.log 2>&1; then
-    if grep -q "ZERO BYTES EXFILTRATED" /tmp/preflight-governed.log; then
+PREFLIGHT_LOG="$(mktemp /tmp/preflight-governed-XXXXXX.log)"
+if bash "${REPO_ROOT}/2-governed/run.sh" >"${PREFLIGHT_LOG}" 2>&1; then
+    if grep -q "ZERO BYTES EXFILTRATED" "${PREFLIGHT_LOG}"; then
         pass "OpenShell governed run verified: GCP SA key masked & egress POST blocked!"
+        rm -f "${PREFLIGHT_LOG}"
     else
-        fail "2-governed/run.sh completed but did not report expected policy block. Check /tmp/preflight-governed.log"
+        fail "2-governed/run.sh completed but did not report expected policy block. Check ${PREFLIGHT_LOG}"
     fi
 else
-    cat /tmp/preflight-governed.log
-    fail "2-governed/run.sh exited with non-zero code during pre-flight test"
+    cat "${PREFLIGHT_LOG}"
+    fail "2-governed/run.sh exited with non-zero code during pre-flight test (log: ${PREFLIGHT_LOG})"
 fi
-rm -f /tmp/preflight-governed.log
 bash "${REPO_ROOT}/scripts/auditor.sh" clear >/dev/null 2>&1 || true
 
 echo -e "\n\033[1;42;97m 🟢 PRE-FLIGHT PASSED (${PASS_COUNT} checks passed, ${WARN_COUNT} warnings) — READY FOR STAGE! \033[0m"

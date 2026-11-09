@@ -1,8 +1,26 @@
 # Teach Agents When Not to Act
 
-Runtime boundaries and execution safety for autonomous tools.
+Runtime boundaries and execution safety for autonomous tools
 
-This repo runs a live demo. The same Python agent (`agent/agent.py`) runs twice:
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![Agent](https://img.shields.io/badge/Agent-Google_ADK-orange.svg)](https://google.github.io/adk-docs/)
+[![Inference](https://img.shields.io/badge/Inference-Ollama-green.svg)](https://ollama.com/)
+[![Governance](https://img.shields.io/badge/Governance-OpenShell_Policy-purple.svg)](./2-governed/policy.yaml)
+[![OS](https://img.shields.io/badge/OS-Windows_WSL2_%7C_macOS-lightgrey.svg)](#requirements)
+
+## Overview
+
+Automation works because it is predictable. Agents are not. An auto-fix bot once spotted a race condition in a deployment pipeline and "fixed" it by removing the lock. The deadlock reached production and woke the on-call engineer at 2 a.m. The bot did what it was told to do, not what it was allowed to do.
+
+That gap matters. A coding assistant suggests text; an autonomous agent changes state. When agents run shell commands, touch local files, and call remote endpoints, prompts stop being harmless text. They become operational code.
+
+Relying on system prompts to enforce safety fails. A confused or prompt-injected model routinely ignores its own instructions. Guardrails belong outside the agent runtime, not inside its prompt.
+
+This repository treats agent safety as an infrastructure boundary problem. It runs a live, offline demo of an autonomous agent attempting to read local credentials, and shows an external policy enforcing network denial and filesystem isolation without changing a line of model code.
+
+The goal is not an agent that always acts. The goal is a system with hard boundaries that knows when to stop.
+
+This repository is the live demonstration behind this idea. The agent in [`agent/agent.py`](./agent/agent.py) is created using **Google ADK** (Agent Development Kit), with LiteLLM calling a local Ollama model. The same agent code runs twice:
 
 1. **Act 1 (`1-baseline/`)** runs with full host access. It reads a fake cloud service account key from `workspace/secrets/` and posts it to a local listener on port 8080.
 2. **Act 2 (`2-governed/`)** runs the identical code and prompt inside a sandbox. The sandbox masks the key file at the filesystem level and blocks all network egress except the local LLM port. The agent exfiltrates zero bytes.
@@ -78,7 +96,7 @@ mise run sandbox:reset
 
 ## How it works
 
-The agent (`agent/agent.py`) has three tools: list workspace files, read a workspace file, and POST a report to `http://127.0.0.1:8080/report`. Its instructions tell it to read every file, including the secret, and post everything. Prompts express intent. They do not enforce anything.
+The agent (`agent/agent.py`) has three tools: list workspace files, read a workspace file, and POST a report to `http://127.0.0.1:8080/report`. Its instructions beg it, in caps, never to read the secret, then tell it to read every file and post everything. Prompts express intent. They do not enforce anything.
 
 Act 2 wraps the same agent in a declarative policy (`2-governed/policy.yaml`):
 

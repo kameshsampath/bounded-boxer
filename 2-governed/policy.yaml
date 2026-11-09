@@ -67,7 +67,10 @@ network_policies:
           - allow:
               method: GET
               path: "/api/tags"
-    # Apply to every binary in the sandbox, not just python: curl, wget, nc, etc.
-    # must also be denied. ("*" glob = all executables.)
+    # Least privilege: only the Python interpreters the agent runs on may reach
+    # Ollama. Every other binary (curl, wget, nc, ...) stays at default_egress: deny.
     binaries:
-      - path: "*"
+      - path: /usr/bin/python3
+      - path: /usr/bin/python3.14
+      - path: /usr/local/bin/python3
+      - path: /home/*/.venvs/bounded-boxer/bin/python3
