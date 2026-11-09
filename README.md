@@ -91,7 +91,7 @@ mise run sandbox:reset
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart RL
     subgraph Host["Host laptop (offline)"]
         Ollama[("Ollama :11434<br/>local model")]
         Sink["Exfil sink :8080"]
