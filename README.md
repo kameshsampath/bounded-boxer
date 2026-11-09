@@ -92,26 +92,23 @@ mise run sandbox:reset
 
 ```mermaid
 flowchart LR
-    subgraph Host["Host laptop (offline): repo, Ollama, sink, auditor"]
+    subgraph Host["Host laptop (offline)"]
         Ollama[("Ollama :11434<br/>local model")]
         Sink["Exfil sink :8080"]
         UI["Auditor UI :8501 (browser)"]
-        A1["Act 1: Google ADK agent<br/>runs directly on host, no sandbox"]
-        subgraph Sandbox["Sandbox (Act 2 only):<br/>bwrap namespace + OpenShell policy"]
+        A1["Act 1: Google ADK agent<br/>on host, no sandbox"]
+        subgraph SB["Sandbox (Act 2 only):<br/>bwrap + OpenShell policy"]
             A2["Google ADK agent<br/>same code, same prompt"]
         end
     end
-    Config["workspace/config/app-settings.yaml"]
-    Secret["workspace/secrets/gcp-sa-key.json"]
+    WS["workspace/<br/>(config + canary secret)"]
 
-    A1 -->|"reads"| Config
-    A1 -->|"reads the key"| Secret
-    A1 -->|"HTTP POST exfiltrates"| Sink
-    A1 -->|"inference"| Ollama
-    A2 -->|"read allowed"| Config
-    A2 -.->|"masked: 0 bytes"| Secret
-    A2 -.->|"blocked"| Sink
-    A2 -->|"only allowed egress"| Ollama
+    A1 --> WS
+    A1 -->|"reads key, POSTs it"| Sink
+    A2 -->|"reads config fine"| WS
+    A2 -.->|"key masked, POST blocked"| WS
+    A2 -.->|"egress denied"| Sink
+    A1 & A2 -->|"inference only"| Ollama
     Sink --> UI
 ```
 
