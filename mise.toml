@@ -1,0 +1,88 @@
+# mise configuration for devfest-safe-agents-demo
+# Works identically across Windows 11 (Ubuntu WSL2) and macOS (Apple Silicon)
+
+[tools]
+python = "3.12"
+
+[env]
+# Store the virtualenv in native ext4/APFS home directory to avoid /mnt/d NTFS 9P slowdowns
+_.python.venv = { path = "{{env.HOME}}/.venvs/devfest-safe-agents-demo", create = true }
+
+# Inference Configuration (Supports llama3.2:3b or nemotron-mini / nemotron-nano)
+MODEL_NAME = "llama3.2:3b"
+OLLAMA_HOST = "http://127.0.0.1:11434"
+OLLAMA_API_BASE = "http://127.0.0.1:11434"
+
+# Demo Target Workspace, Listener, Visual Auditor & OpenShell Sandbox Configuration
+OPS_WORKSPACE_DIR = "{{config_root}}/workspace"
+REPORT_ENDPOINT = "http://127.0.0.1:8080/report"
+EXFIL_PORT = "8080"
+AUDITOR_PORT = "8501"
+SANDBOX_NAME = "ops-agent-sandbox"
+SANDBOX_IMAGE = "devfest-openshell-ubuntu:latest"
+
+# Strict Offline & Telemetry-Free Operation
+LITELLM_LOCAL_MODEL_COST_MAP = "True"
+ADK_DISABLE_TELEMETRY = "1"
+DO_NOT_TRACK = "1"
+PYTHONUNBUFFERED = "1"
+
+[tasks.install]
+description = "Install Python dependencies (uses local airgap wheelhouse if cached)"
+run = "bash scripts/cache-deps.sh install"
+
+[tasks."cache:deps"]
+description = "Pre-download all Python wheels (.whl) into .cache/wheelhouse for 100% airgap/offline resilience"
+run = "bash scripts/cache-deps.sh download"
+
+[tasks.preflight]
+description = "Run offline pre-flight checks, warm model in RAM, and start Visual Auditor"
+run = "bash scripts/test-offline.sh"
+
+[tasks.baseline]
+description = "Act 1: Run unconstrained baseline agent (exfiltrates GCP SA JSON to :8080 & Visual Auditor)"
+run = "bash 1-baseline/run.sh"
+
+[tasks.governed]
+description = "Act 2: Run OpenShell policy-governed agent inside sandbox (masks GCP SA JSON & blocks egress)"
+run = "bash 2-governed/run.sh"
+
+[tasks."auditor:start"]
+description = "Start persistent Streamlit Visual Security Auditor (http://localhost:8501 + :8080 Sink)"
+run = "bash scripts/auditor.sh start"
+
+[tasks."auditor:stop"]
+description = "Stop background Streamlit Visual Security Auditor"
+run = "bash scripts/auditor.sh stop"
+
+[tasks."auditor:clear"]
+description = "Reset Visual Auditor dashboard state between demo runs"
+run = "bash scripts/auditor.sh clear"
+
+[tasks."auditor:status"]
+description = "Check status of Streamlit Visual Security Auditor (:8501 and :8080)"
+run = "bash scripts/auditor.sh status"
+
+[tasks."sandbox:build"]
+description = "Build offline Ubuntu sandbox container image (used by Docker Desktop on macOS)"
+run = "bash scripts/sandbox.sh build"
+
+[tasks."sandbox:create"]
+description = "Create/start governed sandbox (bwrap on Linux/WSL2, Docker Desktop on macOS)"
+run = "bash scripts/sandbox.sh create"
+
+[tasks."sandbox:status"]
+description = "Inspect live status and active policy boundaries of ops-agent-sandbox"
+run = "bash scripts/sandbox.sh status"
+
+[tasks."sandbox:shell"]
+description = "Drop into interactive bash shell inside governed sandbox for live audience proof"
+run = "bash scripts/sandbox.sh shell"
+
+[tasks."sandbox:destroy"]
+description = "Tear down and clean up ops-agent-sandbox"
+run = "bash scripts/sandbox.sh destroy"
+
+[tasks."sandbox:reset"]
+description = "Destroy and cleanly recreate ops-agent-sandbox"
+run = "bash scripts/sandbox.sh reset"

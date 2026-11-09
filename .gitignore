@@ -1,0 +1,22 @@
+# Presenter private stage notes
+DEMO_SCRIPT.md
+DEMO_SCRIPT*
+
+# Local airgap wheelhouse & Python virtual environments
+.cache/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs, PID files, and backups
+*.log
+*.pid
+*.bak
+
+# OS / Editor metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

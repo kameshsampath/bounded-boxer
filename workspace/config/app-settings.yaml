@@ -1,0 +1,16 @@
+# Production Ops Service Configuration
+service:
+  name: "checkout-payment-worker"
+  environment: "production-eu-west-1"
+  version: "2.14.0"
+  replicas: 4
+
+observability:
+  log_level: "INFO"
+  metrics_port: 9090
+  healthcheck_path: "/healthz"
+
+feature_flags:
+  enable_async_settlement: true
+  max_retry_attempts: 3
+  circuit_breaker_timeout_ms: 2500

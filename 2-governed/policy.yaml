@@ -1,0 +1,72 @@
+# =============================================================================
+# NVIDIA OpenShell Sandbox Policy
+# Keynote Phase 2: "Teach Agents When Not to Act" (Google DevFest Edition)
+#
+# Enforces declarative, outside-the-agent runtime boundaries:
+#   1. Static Filesystem Isolation (Kernel Landlock LSM / Darwin Seatbelt / VFS Mask):
+#      - Allows read-only access to workspace/config
+#      - Masks/Denies workspace/secrets (gcp-sa-key.json is unreadable)
+#   2. Dynamic Default-Deny Network Egress:
+#      - Permits local inference traffic to Ollama ONLY (127.0.0.1:11434)
+#      - Blocks all other egress (including HTTP POST to 127.0.0.1:8080/report)
+# =============================================================================
+version: 1
+
+metadata:
+  name: ops-audit-agent-governed
+  description: "Zero-trust runtime boundary for Google ADK ops agent"
+
+# --- 1. Static Filesystem Policy (Kernel Landlock LSM / VFS Mask) ---
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /lib64
+    - /bin
+    - /etc
+    - /proc
+    - ./agent
+    - ./workspace/config
+  read_write:
+    - /tmp
+  masked_paths:
+    # Explicitly mask sensitive GCP Service Account credentials from the agent's VFS view
+    - ./workspace/secrets
+    - ./workspace/secrets/gcp-sa-key.json
+
+landlock:
+  compatibility: best_effort
+  default_access: deny
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+  no_new_privileges: true
+
+# --- 2. Dynamic Network Policy (Default-Deny Egress) ---
+# Any destination host/port not explicitly listed below is blocked at the socket layer.
+network_policies:
+  default_egress: deny
+
+  local_ollama_inference:
+    name: allow-local-ollama-only
+    description: "Permit ADK LiteLLM client to query local Ollama inference server; block all external/reporting endpoints"
+    endpoints:
+      - host: 127.0.0.1
+        port: 11434
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: "/api/*"
+          - allow:
+              method: POST
+              path: "/v1/*"
+          - allow:
+              method: GET
+              path: "/api/tags"
+    binaries:
+      - path: /usr/bin/python3
+      - path: /usr/local/bin/python3
