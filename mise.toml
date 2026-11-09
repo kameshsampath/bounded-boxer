@@ -8,7 +8,10 @@ python = "3.12"
 # Store the virtualenv in native ext4/APFS home directory to avoid /mnt/d NTFS 9P slowdowns
 _.python.venv = { path = "{{env.HOME}}/.venvs/bounded-boxer", create = true }
 
-# Inference Configuration (Supports llama3.2:3b or nemotron-mini / nemotron-nano)
+# Inference Configuration: any local Ollama model works (offline).
+# Default llama3.2:3b; swap freely, e.g. Google's Gemma via Ollama:
+#   MODEL_NAME=gemma3:4b mise run baseline     (Gemini API itself needs cloud, use Gemma offline)
+# or provision with:  provision.ps1 -Model gemma3:4b
 MODEL_NAME = "llama3.2:3b"
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_API_BASE = "http://127.0.0.1:11434"

@@ -12,13 +12,7 @@ Runtime boundaries and execution safety for autonomous tools
 
 Automation works because it is predictable. Agents are not. An auto-fix bot once spotted a race condition in a deployment pipeline and "fixed" it by removing the lock. The deadlock reached production and woke the on-call engineer at 2 a.m. The bot did what it was told to do, not what it was allowed to do.
 
-That gap matters. A coding assistant suggests text; an autonomous agent changes state. When agents run shell commands, touch local files, and call remote endpoints, prompts stop being harmless text. They become operational code.
-
-Relying on system prompts to enforce safety fails. A confused or prompt-injected model routinely ignores its own instructions. Guardrails belong outside the agent runtime, not inside its prompt.
-
-This repository treats agent safety as an infrastructure boundary problem. It runs a live, offline demo of an autonomous agent attempting to read local credentials, and shows an external policy enforcing network denial and filesystem isolation without changing a line of model code.
-
-The goal is not an agent that always acts. The goal is a system with hard boundaries that knows when to stop.
+Prompts express intent; they do not enforce anything. This repo treats agent safety as an infrastructure boundary problem: a live, offline demo of an agent that tries to read local credentials, and the external policy that stops it without changing a line of model code. The goal is not an agent that always acts. The goal is a system with hard boundaries that knows when to stop.
 
 This repository is the live demonstration behind this idea. The agent in [`agent/agent.py`](./agent/agent.py) is created using **Google ADK** (Agent Development Kit), with LiteLLM calling a local Ollama model. The same agent code runs twice:
 
@@ -34,7 +28,7 @@ Everything runs locally and offline. No cloud calls. No Wi-Fi needed at show tim
 - A laptop with 16 GB RAM.
 - Windows 11 with WSL2 (Ubuntu), or macOS on Apple Silicon.
 - [mise](https://mise.jdx.dev/) for tasks and the Python environment.
-- [Ollama](https://ollama.com/) for local inference (`llama3.2:3b` by default).
+- [Ollama](https://ollama.com/) for local inference (`llama3.2:3b` by default; any local Ollama model works, e.g. Google's `gemma3:4b` via `MODEL_NAME=gemma3:4b mise run baseline` or `provision.ps1 -Model gemma3:4b`). The Gemini API itself needs cloud access, so for the offline demo use Gemma through Ollama.
 - Sandbox engine: Bubblewrap (`bwrap`) on Linux/WSL2, Docker Desktop on macOS.
 
 ## Setup
@@ -92,6 +86,32 @@ Reset between rehearsals:
 ```bash
 mise run auditor:clear
 mise run sandbox:reset
+```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Host["Host laptop (offline)"]
+        Ollama[("Ollama :11434<br/>local model")]
+        Sink["Exfil sink :8080"]
+        UI["Auditor UI :8501 (browser)"]
+    end
+    Config["workspace/config/app-settings.yaml"]
+    Secret["workspace/secrets/gcp-sa-key.json"]
+
+    A1["Act 1: Google ADK agent<br/>no sandbox"]
+    A2["Act 2: same agent in Sandbox<br/>OpenShell policy + bwrap runtime"]
+
+    A1 -->|"reads"| Config
+    A1 -->|"reads the key"| Secret
+    A1 -->|"HTTP POST exfiltrates"| Sink
+    A1 -->|"inference"| Ollama
+    A2 -->|"read allowed"| Config
+    A2 -.->|"masked: 0 bytes"| Secret
+    A2 -.->|"blocked"| Sink
+    A2 -->|"only allowed egress"| Ollama
+    Sink --> UI
 ```
 
 ## How it works
