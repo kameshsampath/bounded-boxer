@@ -1,65 +1,62 @@
-# mise configuration for bounded-boxer
+# mise configuration for bounded-boxer (100% Go Architecture)
 # Works identically across Windows 11 (Ubuntu WSL2) and macOS (Apple Silicon)
 
 [tools]
-python = "3.12"
+go = "1.24"
 
 [env]
-# Store the virtualenv in native ext4/APFS home directory to avoid /mnt/d NTFS 9P slowdowns
-_.python.venv = { path = "{{env.HOME}}/.venvs/bounded-boxer", create = true }
-
 # Inference Configuration: any local Ollama model works (offline).
 # Default llama3.2:3b; swap freely, e.g. Google's Gemma via Ollama:
-#   MODEL_NAME=gemma3:4b mise run baseline     (Gemini API itself needs cloud, use Gemma offline)
+#   MODEL_NAME=gemma3:4b mise run baseline
 # or provision with:  provision.ps1 -Model gemma3:4b
 MODEL_NAME = "llama3.2:3b"
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_API_BASE = "http://127.0.0.1:11434"
 
-# Demo Target Workspace, Listener, Visual Auditor & OpenShell Sandbox Configuration
+# Demo Target Workspace, Dual Sinks (:8080 Allowed Internal, :9090 Unauthorized Exfil), Visual Auditor & OpenShell Sandbox Configuration
 OPS_WORKSPACE_DIR = "{{config_root}}/workspace"
 REPORT_ENDPOINT = "http://127.0.0.1:8080/report"
+EXTERNAL_EXFIL_ENDPOINT = "http://127.0.0.1:9090/exfil"
 EXFIL_PORT = "8080"
+EXFIL_SINK_PORT = "9090"
 AUDITOR_PORT = "8501"
 SANDBOX_NAME = "ops-agent-sandbox"
 SANDBOX_IMAGE = "bounded-boxer-ubuntu:latest"
 
 # Strict Offline & Telemetry-Free Operation
-LITELLM_LOCAL_MODEL_COST_MAP = "True"
 ADK_DISABLE_TELEMETRY = "1"
 DO_NOT_TRACK = "1"
-PYTHONUNBUFFERED = "1"
 
 [tasks.doctor]
 description = "Run the non-destructive Prerequisite & Environment Doctor (used by the safe-agents-demo skill)"
 run = "bash .agents/skills/safe-agents-demo/scripts/doctor.sh"
 
-[tasks.install]
-description = "Install Python dependencies (uses local airgap wheelhouse if cached)"
-run = "bash scripts/cache-deps.sh install"
+[tasks.build]
+description = "Compile static Go binaries from vendored project sources (100% offline)"
+run = "mkdir -p bin && CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags='-s -w' -o bin/bounded-boxer-agent ./cmd/agent && CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags='-s -w' -o bin/bounded-boxer-auditor ./cmd/auditor"
 
-[tasks."cache:deps"]
-description = "Pre-download all Python wheels (.whl) into .cache/wheelhouse for 100% airgap/offline resilience"
-run = "bash scripts/cache-deps.sh download"
+[tasks.vendor]
+description = "Refresh ./vendor directory after updating go.mod"
+run = "go mod tidy && go mod vendor"
 
 [tasks.preflight]
 description = "Run offline pre-flight checks, warm model in RAM, and start Visual Auditor"
 run = "bash scripts/test-offline.sh"
 
 [tasks.baseline]
-description = "Act 1: Run unconstrained baseline agent (exfiltrates GCP SA JSON to :8080 & Visual Auditor)"
+description = "Act 1: Run unconstrained baseline agent (leaks GCP SA JSON to :8080 and :9090)"
 run = "bash 1-baseline/run.sh"
 
 [tasks.governed]
-description = "Act 2: Run OpenShell policy-governed agent inside sandbox (masks GCP SA JSON & blocks egress)"
+description = "Act 2: Run OpenShell policy-governed agent inside sandbox (masks GCP SA JSON, allows sanitized :8080 report, blocks :9090 exfil)"
 run = "bash 2-governed/run.sh"
 
 [tasks."auditor:start"]
-description = "Start persistent Streamlit Visual Security Auditor (http://localhost:8501 + :8080 Sink)"
+description = "Start persistent Labstack Echo Visual Security Auditor (http://localhost:8501 + :8080 + :9090)"
 run = "bash scripts/auditor.sh start"
 
 [tasks."auditor:stop"]
-description = "Stop background Streamlit Visual Security Auditor"
+description = "Stop background Labstack Echo Visual Security Auditor"
 run = "bash scripts/auditor.sh stop"
 
 [tasks."auditor:clear"]
@@ -67,7 +64,7 @@ description = "Reset Visual Auditor dashboard state between demo runs"
 run = "bash scripts/auditor.sh clear"
 
 [tasks."auditor:status"]
-description = "Check status of Streamlit Visual Security Auditor (:8501 and :8080)"
+description = "Check status of Labstack Echo Visual Security Auditor (:8501, :8080, and :9090)"
 run = "bash scripts/auditor.sh status"
 
 [tasks."sandbox:build"]

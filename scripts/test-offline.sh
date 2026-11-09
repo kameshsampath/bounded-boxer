@@ -5,10 +5,10 @@
 # for zero-Wi-Fi keynote execution:
 #   1. Host OS & Memory Boundary (~8GB WSL2 cap on Windows or 16GB Unified Memory on Mac)
 #   2. Sandbox Engine (Zero-daemon `bwrap` on Linux/WSL2 OR Docker Desktop on macOS)
-#   3. Python Virtualenv, Google ADK / LiteLLM / Streamlit imports & Airgap Wheelhouse
+#   3. Go Toolchain, Compiled Static Binaries (`bin/`), & Offline `vendor/` Cache
 #   4. Local Ollama server health + cached model weights + RAM warm-up (keep_alive=-1)
 #   5. Workspace canary files (`config/app-settings.yaml`, `secrets/gcp-sa-key.json`)
-#   6. Persistent Streamlit Visual Auditor (`:8501` UI + `:8080` Sink) & Governed Smoke Test
+#   6. Persistent Labstack Echo Visual Auditor (`:8501` UI, `:8080` Report, `:9090` Exfil) & Governed Smoke Test
 # =============================================================================
 set -euo pipefail
 
@@ -16,11 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
-# Activate virtualenv if present
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
-    # shellcheck disable=SC1091
-    source "${HOME}/.venvs/bounded-boxer/bin/activate"
-fi
+export PATH="${HOME}/.local/bin:${HOME}/.local/share/mise/shims:/usr/local/go/bin:${PATH}"
 
 MODEL_NAME="${MODEL_NAME:-llama3.2:3b}"
 OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
@@ -46,7 +42,7 @@ fail() {
 }
 
 echo -e "\033[1;36m========================================================================\033[0m"
-echo -e "\033[1;36m  PRE-FLIGHT OFFLINE VERIFICATION: bounded-boxer             \033[0m"
+echo -e "\033[1;36m  PRE-FLIGHT OFFLINE VERIFICATION: bounded-boxer (Go ADK + Echo)        \033[0m"
 echo -e "\033[1;36m  Platform: ${OS_NAME} (${ARCH_NAME})                                   \033[0m"
 echo -e "\033[1;36m========================================================================\033[0m"
 
@@ -59,7 +55,7 @@ if [[ "${OS_NAME}" == "Linux" ]]; then
     TOTAL_MEM_MB="$((TOTAL_MEM_KB / 1024))"
     USED_MEM_MB="$(free -m | awk '/^Mem:/ {print $3}')"
     if (( TOTAL_MEM_MB <= 8600 )); then
-        pass "WSL2 RAM capped at ${TOTAL_MEM_MB} MB (Currently used: ${USED_MEM_MB} MB — plenty of headroom)"
+        pass "WSL2 RAM capped at ${TOTAL_MEM_MB} MB (Currently used: ${USED_MEM_MB} MB - plenty of headroom)"
     else
         warn "WSL2 RAM is ${TOTAL_MEM_MB} MB (> 8GB). Run 'wsl --shutdown' after running scripts/provision.ps1"
     fi
@@ -93,22 +89,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Check 3: Python Dependencies & Offline Airgap Wheelhouse
+# Check 3: Go Binaries & Vendored Sources
 # ---------------------------------------------------------------------------
-echo -e "\n\033[1;37m[3/6] Checking Python Dependencies & Airgap Wheelhouse Cache...\033[0m"
-if python3 -c "import google.adk, litellm, requests, rich, yaml, streamlit" >/dev/null 2>&1; then
-    PYTHON_BIN="$(command -v python3)"
-    pass "All Python packages (ADK, LiteLLM, Streamlit) import cleanly (${PYTHON_BIN})"
-else
-    fail "Missing Python packages. Run: mise run install"
+echo -e "\n\033[1;37m[3/6] Checking Go Binaries & Vendored Sources...\033[0m"
+if [[ ! -x "${REPO_ROOT}/bin/bounded-boxer-agent" || ! -x "${REPO_ROOT}/bin/bounded-boxer-auditor" ]]; then
+    mkdir -p "${REPO_ROOT}/bin"
+    CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o "${REPO_ROOT}/bin/bounded-boxer-agent" ./cmd/agent
+    CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o "${REPO_ROOT}/bin/bounded-boxer-auditor" ./cmd/auditor
 fi
 
-WHEELHOUSE_DIR="${REPO_ROOT}/.cache/wheelhouse/${OS_NAME}-${ARCH_NAME}"
-if [[ -d "${WHEELHOUSE_DIR}" ]] && [[ -n "$(find "${WHEELHOUSE_DIR}" -name "*.whl" -print -quit 2>/dev/null)" ]]; then
-    WHEEL_COUNT="$(find "${WHEELHOUSE_DIR}" -name "*.whl" | wc -l | tr -d ' ')"
-    pass "Airgap wheelhouse cached (${WHEEL_COUNT} wheels in .cache/wheelhouse/${OS_NAME}-${ARCH_NAME})"
+if [[ -x "${REPO_ROOT}/bin/bounded-boxer-agent" && -x "${REPO_ROOT}/bin/bounded-boxer-auditor" ]]; then
+    pass "Compiled Go binaries verified (bin/bounded-boxer-agent, bin/bounded-boxer-auditor)"
 else
-    warn "Airgap wheelhouse not populated yet (run 'mise run cache:deps' while on Wi-Fi)"
+    fail "Go binaries missing. Run: mise run build"
+fi
+
+if [[ -f "${REPO_ROOT}/vendor/modules.txt" ]]; then
+    MOD_COUNT="$(grep -c '^# ' "${REPO_ROOT}/vendor/modules.txt" 2>/dev/null || echo 0)"
+    pass "Vendored Go dependencies present (${MOD_COUNT} modules in ./vendor)"
+else
+    warn "Go vendor directory missing (run 'mise run vendor')"
 fi
 
 # ---------------------------------------------------------------------------
@@ -143,23 +143,23 @@ echo -e "\n\033[1;37m[5/6] Checking Demo Workspace & OpenShell Policy Files...\0
 pass "Workspace config, canary GCP SA JSON key, and 2-governed/policy.yaml verified"
 
 # ---------------------------------------------------------------------------
-# Check 6: Start Streamlit Visual Auditor & Smoke-Test Governed Policy
+# Check 6: Start Labstack Echo Visual Auditor & Smoke-Test Governed Policy
 # ---------------------------------------------------------------------------
-echo -e "\n\033[1;37m[6/6] Starting Visual Auditor (:8501) & Smoke-Testing 2-governed/policy.yaml...\033[0m"
+echo -e "\n\033[1;37m[6/6] Starting Labstack Echo Visual Auditor (:8501) & Smoke-Testing 2-governed/policy.yaml...\033[0m"
 bash "${REPO_ROOT}/scripts/auditor.sh" start >/dev/null 2>&1 || true
 if curl -sf "http://127.0.0.1:8501/_stcore/health" >/dev/null 2>&1; then
-    pass "Streamlit Visual Security Auditor live at http://localhost:8501 (Sink on :8080)"
+    pass "Labstack Echo Visual Security Auditor live at http://localhost:8501 (:8080 Report + :9090 Exfil)"
 else
-    warn "Streamlit Visual Auditor not responding on :8501 (run 'mise run auditor:start')"
+    warn "Visual Auditor not responding on :8501 (run 'mise run auditor:start')"
 fi
 
 PREFLIGHT_LOG="$(mktemp /tmp/preflight-governed-XXXXXX.log)"
 if bash "${REPO_ROOT}/2-governed/run.sh" >"${PREFLIGHT_LOG}" 2>&1; then
-    if grep -q "ZERO BYTES EXFILTRATED" "${PREFLIGHT_LOG}"; then
-        pass "OpenShell governed run verified: GCP SA key masked & egress POST blocked!"
+    if grep -q "ZERO SECRET BYTES EXFILTRATED" "${PREFLIGHT_LOG}"; then
+        pass "OpenShell governed run verified: GCP SA key masked, sanitized :8080 report delivered, :9090 exfil blocked!"
         rm -f "${PREFLIGHT_LOG}"
     else
-        fail "2-governed/run.sh completed but did not report expected policy block. Check ${PREFLIGHT_LOG}"
+        fail "2-governed/run.sh completed but did not report expected policy verification. Check ${PREFLIGHT_LOG}"
     fi
 else
     cat "${PREFLIGHT_LOG}"
@@ -167,5 +167,5 @@ else
 fi
 bash "${REPO_ROOT}/scripts/auditor.sh" clear >/dev/null 2>&1 || true
 
-echo -e "\n\033[1;42;97m 🟢 PRE-FLIGHT PASSED (${PASS_COUNT} checks passed, ${WARN_COUNT} warnings) — READY FOR STAGE! \033[0m"
-echo -e "  🌐 \033[1;36mOpen Visual Security Auditor in Browser:\033[0m \033[1;4;32mhttp://localhost:8501\033[0m"
+echo -e "\n\033[1;42;97m [READY] PRE-FLIGHT PASSED (${PASS_COUNT} checks passed, ${WARN_COUNT} warnings) - READY FOR STAGE! \033[0m"
+echo -e "  - \033[1;36mOpen Visual Security Auditor in Browser:\033[0m \033[1;4;32mhttp://localhost:8501\033[0m"

@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Bounded Boxer Infrastructure Provisioner (`bounded-boxer`).
+    Bounded Boxer Infrastructure Provisioner (`bounded-boxer` - Go Edition).
     Configures Windows 11 .wslconfig (8GB RAM cap), provisions an isolated named
     WSL2 instance ('BoundedBoxer') from a Golden Tarball (if present) or base Ubuntu
     so the default Ubuntu distro is never polluted, sets up Bubblewrap (`bwrap`),
-    Ollama, `mise`, Python venv, offline `.cache/wheelhouse/Linux-x86_64`,
-    starts the Bounded Boxer Visual Auditor (`http://localhost:8501`), and exports
+    Ollama, `mise`, Go 1.24, offline `./vendor` cache + static binaries (`./bin`),
+    starts the Labstack Echo Visual Auditor (`http://localhost:8501`), and exports
     the Golden WSL2 Tarball (`.cache\bounded-boxer-wsl-golden.tar`) for fast E2E resets.
 
 .PARAMETER Distro
@@ -48,7 +48,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================================================" -ForegroundColor Cyan
-Write-Host "  Bounded Boxer Infrastructure Prep (Isolated WSL2 + Golden Tarball)    " -ForegroundColor Cyan
+Write-Host "  Bounded Boxer Infrastructure Prep (Go ADK + Echo + WSL2 Golden Tar)   " -ForegroundColor Cyan
 Write-Host "  Target Instance: '$Distro' (Base: '$BaseDistro') + bwrap + Visual UI  " -ForegroundColor Cyan
 Write-Host "========================================================================" -ForegroundColor Cyan
 
@@ -95,10 +95,6 @@ $InstanceInstallDir = Join-Path $env:LOCALAPPDATA "WSL\$Distro"
 Write-Host "`n[2/5] Checking WSL2 instance & Golden Tarball status..." -ForegroundColor Yellow
 $DistroList = (wsl.exe --list --quiet) -replace "`0", "" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
 
-# Determine which WSL instance we are operating on during Steps 3 & 4:
-# - If $GoldenTarPath already exists, we import/use the isolated named instance ($Distro = "BoundedBoxer").
-# - If $GoldenTarPath does NOT exist yet, we complete full provisioning in $BaseDistro ("Ubuntu") first,
-#   and ONLY export $GoldenTarPath + create '$Distro' at Step [5/5] after provisioning & pre-flight succeed!
 $TargetWsl = $Distro
 
 if ($ResetFromGoldenTar) {
@@ -130,7 +126,6 @@ if ($ResetFromGoldenTar) {
     }
     $TargetWsl = $Distro
 } else {
-    # Golden tarball does not exist yet: provision in $BaseDistro first, then export Golden Tar at Step [5/5]
     if ($DistroList -notcontains $BaseDistro) {
         Write-Warning "WSL distro '$BaseDistro' not found. Installing '$BaseDistro'..."
         wsl.exe --install -d $BaseDistro
@@ -142,7 +137,6 @@ if ($ResetFromGoldenTar) {
 $RepoRootSlash = $RepoRootWin -replace '\\', '/'
 $WslRepoRootRaw = wsl.exe -d $TargetWsl -- wslpath -u "$RepoRootSlash"
 if ([string]::IsNullOrWhiteSpace($WslRepoRootRaw)) {
-    # Deterministic fallback if wslpath fails
     $DriveLetter = $RepoRootWin.Substring(0, 1).ToLower()
     $SubPath = ($RepoRootWin.Substring(2) -replace '\\', '/').TrimStart('/')
     $WslRepoRoot = "/mnt/$DriveLetter/$SubPath"
@@ -155,14 +149,12 @@ Write-Host "      WSL2 Mount Path   : $WslRepoRoot" -ForegroundColor Gray
 Write-Host "      Golden Tar Path   : $GoldenTarPath" -ForegroundColor Gray
 
 # ---------------------------------------------------------------------------
-# 3. Provision Kernel Sandbox (bwrap), Ollama, Wheelhouse, Visual Auditor & MOTD
+# 3. Provision Kernel Sandbox (bwrap), Ollama, Go Binaries, Visual Auditor & MOTD
 # ---------------------------------------------------------------------------
-Write-Host "`n[3/5] Provisioning Kernel Sandbox (bwrap), Ollama, Airgap Wheelhouse, Visual Auditor & MOTD in '$TargetWsl'..." -ForegroundColor Yellow
+Write-Host "`n[3/5] Provisioning Kernel Sandbox (bwrap), Ollama, Go Toolchain, Visual Auditor & MOTD in '$TargetWsl'..." -ForegroundColor Yellow
 
 $PullNemotronFlag = if ($PullNemotron) { "1" } else { "0" }
 
-# Pre-check if ollama is already installed inside WSL2; if not, pre-download via Windows host curl.exe
-# with generous timeouts and 15s retry delays (avoids WSL2 NAT/IPv6 504 timeouts and caches the archive).
 wsl.exe -d $TargetWsl -- test -x /usr/local/bin/ollama
 if ($LASTEXITCODE -ne 0) {
     $OllamaArchiveWin = Join-Path $CacheDirWin "ollama-linux-amd64.tar.zst"
@@ -180,21 +172,20 @@ REPO_ROOT="$1"
 export DEBIAN_FRONTEND=noninteractive
 export PATH="/usr/local/bin:${PATH}"
 
-echo "---> [WSL2:root] Normalizing LF line endings on shell & python scripts..."
-find "${REPO_ROOT}" -maxdepth 3 \( -name "*.sh" -o -name "*.py" -o -name "*.yaml" -o -name "*.toml" -o -name "*.json" \) -exec sed -i 's/\r$//' {} + || true
+echo "---> [WSL2:root] Normalizing LF line endings on shell & config files..."
+find "${REPO_ROOT}" -maxdepth 3 \( -name "*.sh" -o -name "*.go" -o -name "*.yaml" -o -name "*.toml" -o -name "*.json" \) -exec sed -i 's/\r$//' {} + || true
 chmod +x "${REPO_ROOT}/1-baseline/run.sh" \
          "${REPO_ROOT}/2-governed/run.sh" \
          "${REPO_ROOT}/scripts/test-offline.sh" \
          "${REPO_ROOT}/scripts/sandbox.sh" \
          "${REPO_ROOT}/scripts/auditor.sh" \
-         "${REPO_ROOT}/scripts/cache-deps.sh" \
-         "${REPO_ROOT}/scripts/provision-mac.sh" \
-         "${REPO_ROOT}/agent/agent.py"
+         "${REPO_ROOT}/scripts/byte-proof.sh" \
+         "${REPO_ROOT}/scripts/provision-mac.sh"
 
-if command -v bwrap >/dev/null 2>&1 && command -v zstd >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v nc >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-    echo "---> [WSL2:root] Core Linux packages (bwrap, zstd, jq, nc, python3) already installed."
+if command -v bwrap >/dev/null 2>&1 && command -v zstd >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 && command -v nc >/dev/null 2>&1; then
+    echo "---> [WSL2:root] Core Linux packages (bwrap, zstd, jq, nc) already installed."
 else
-    echo "---> [WSL2:root] Ensuring core Linux packages (curl, bubblewrap, netcat-openbsd, python3-venv, zstd)..."
+    echo "---> [WSL2:root] Ensuring core Linux packages (curl, bubblewrap, netcat-openbsd, zstd)..."
     apt-get update -y -qq
     apt-get install -y -qq \
         ca-certificates \
@@ -203,10 +194,7 @@ else
         jq \
         zstd \
         netcat-openbsd \
-        bubblewrap \
-        python3 \
-        python3-pip \
-        python3-venv
+        bubblewrap
 fi
 
 # --- Install Ollama Inside WSL2 (if not already present) ---
@@ -265,7 +253,7 @@ REPO_ROOT="$1"
 PRIMARY_MODEL="$2"
 PULL_NEMOTRON="$3"
 
-export PATH="/usr/local/bin:${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${PATH}"
+export PATH="/usr/local/bin:${HOME}/.local/bin:${HOME}/.local/share/mise/shims:/usr/local/go/bin:${PATH}"
 touch "${HOME}/.hushlogin"
 
 # --- Install mise for Environment & Task Control ---
@@ -314,29 +302,15 @@ if [[ "${PULL_NEMOTRON}" == "1" ]]; then
     done
 fi
 
-# --- Create Dedicated WSL2 Virtualenv & Populate Airgap Wheelhouse ---
-VENV_DIR="${HOME}/.venvs/bounded-boxer"
-if [[ -x "${VENV_DIR}/bin/python3" ]] && "${VENV_DIR}/bin/python3" -c "import google.adk, litellm, streamlit" >/dev/null 2>&1; then
-    echo "---> [WSL2] Python virtualenv & airgap wheelhouse already provisioned at ${VENV_DIR} (skipping reinstall)."
-else
-    echo "---> [WSL2] Provisioning Python virtualenv at ${VENV_DIR} & caching offline wheelhouse..."
-    mkdir -p "$(dirname "${VENV_DIR}")"
-    # Build the venv with the Python version pinned in mise.toml, so venv and wheelhouse tags always match
-    (cd "${REPO_ROOT}" && mise install python 2>/dev/null) || true
-    python3 -m venv "${VENV_DIR}"
-    # shellcheck disable=SC1091
-    source "${VENV_DIR}/bin/activate"
-    pip install --upgrade pip -q || echo "---> [WSL2] pip upgrade skipped (offline?); continuing with bundled pip..."
-    bash "${REPO_ROOT}/scripts/cache-deps.sh" install
-fi
-
-# Initialize the OpenShell Kernel Sandbox profile & start Visual Security Auditor
-bash "${REPO_ROOT}/scripts/sandbox.sh" create
-bash "${REPO_ROOT}/scripts/auditor.sh" start
-
+# --- Install Go via mise and Compile Static Binaries from ./vendor ---
 if command -v mise >/dev/null 2>&1; then
     mise trust "${REPO_ROOT}/mise.toml" || true
+    (cd "${REPO_ROOT}" && mise install && mise run build)
 fi
+
+# Initialize the OpenShell Kernel Sandbox profile & start Labstack Echo Visual Security Auditor
+bash "${REPO_ROOT}/scripts/sandbox.sh" create
+bash "${REPO_ROOT}/scripts/auditor.sh" start
 '@
 
 $TempRootShWin = Join-Path $RepoRootWin ".provision-root-tmp.sh"
@@ -375,14 +349,12 @@ if ($ExportGoldenTar -or (-not (Test-Path $GoldenTarPath))) {
         Write-Warning "Could not export golden tarball to $GoldenTarPath"
     } else {
         Write-Host "      [OK] Golden WSL2 image saved: $GoldenTarPath" -ForegroundColor Green
-        # If we provisioned inside $BaseDistro, now import the named '$Distro' instance from the Golden Tarball!
         $CurrentDistros = (wsl.exe --list --quiet) -replace "`0", "" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
         if ($CurrentDistros -notcontains $Distro) {
             Write-Host "      Creating isolated '$Distro' instance from the completed Golden Tarball..." -ForegroundColor Cyan
             New-Item -ItemType Directory -Path $InstanceInstallDir -Force | Out-Null
             wsl.exe --import $Distro "$InstanceInstallDir" "$GoldenTarPath" --version 2
         }
-        # Ensure background services are running in the active instance after wsl --export
         wsl.exe -d $Distro -- env PATH="/usr/local/bin:/usr/bin:/bin" bash "$WslRepoRoot/scripts/auditor.sh" start
     }
 } else {

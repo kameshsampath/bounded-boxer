@@ -1,21 +1,15 @@
 # =============================================================================
 # Offline-Ready Ubuntu OpenShell Sandbox Image (bounded-boxer-ubuntu:latest)
 # Used by Docker Desktop on macOS (Apple Silicon arm64) or when SANDBOX_ENGINE=docker.
-# Pre-bakes Python 3.12, Google ADK, LiteLLM, and non-root 'sandbox' user.
+# Runs static Go binaries (./bin/bounded-boxer-agent) as non-root 'sandbox' user.
 # =============================================================================
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
     ADK_DISABLE_TELEMETRY=1 \
-    DO_NOT_TRACK=1 \
-    LITELLM_LOCAL_MODEL_COST_MAP=True
+    DO_NOT_TRACK=1
 
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
     ca-certificates \
     curl \
     iproute2 \
@@ -25,15 +19,6 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
 # Create non-root 'sandbox' user/group matching 2-governed/policy.yaml (process.run_as_user: sandbox)
 RUN groupadd -g 10001 sandbox && \
     useradd -u 10001 -g sandbox -m -s /bin/bash sandbox
-
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
-
-COPY agent/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --upgrade pip -q && \
-    grep -v '^streamlit' /tmp/requirements.txt > /tmp/agent-only-reqs.txt && \
-    pip install --no-cache-dir -r /tmp/agent-only-reqs.txt -q && \
-    rm -f /tmp/requirements.txt /tmp/agent-only-reqs.txt
 
 WORKDIR /app
 USER sandbox

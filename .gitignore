@@ -2,8 +2,11 @@
 DEMO_SCRIPT.md
 DEMO_SCRIPT*
 
-# Local airgap wheelhouse & Python virtual environments
+# Compiled binaries & local airgap model/WSL tar cache (vendor/ is committed to Git)
+bin/
 .cache/
+
+# Legacy Python virtual environments
 .venv/
 venv/
 __pycache__/

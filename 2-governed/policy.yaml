@@ -1,20 +1,21 @@
 # =============================================================================
 # OpenShell Sandbox Policy
-# Demo: "Teach Agents When Not to Act"
+# Project: Bounded Boxer ("Teach Agents When Not to Act")
 #
 # Enforces declarative, outside-the-agent runtime boundaries:
 #   1. Static Filesystem Isolation (Kernel Landlock LSM / Darwin Seatbelt / VFS Mask):
-#      - Allows read-only access to workspace/config
-#      - Masks/Denies workspace/secrets (gcp-sa-key.json is unreadable)
+#      - Allows read-only access to workspace/config and compiled Go binary (./bin)
+#      - Masks/Denies workspace/secrets (gcp-sa-key.json is mounted over /dev/null -> 0 bytes)
 #   2. Dynamic Default-Deny Network Egress:
-#      - Permits local inference traffic to Ollama ONLY (127.0.0.1:11434)
-#      - Blocks all other egress (including HTTP POST to 127.0.0.1:8080/report)
+#      - Permits local inference traffic to Ollama (127.0.0.1:11434)
+#      - Permits internal operations reporting to 127.0.0.1:8080 (/report, /audit-event)
+#      - Blocks all other egress, including unauthorized exfiltration to 127.0.0.1:9090/exfil
 # =============================================================================
 version: 1
 
 metadata:
   name: ops-audit-agent-governed
-  description: "Zero-trust runtime boundary for Google ADK ops agent"
+  description: "Zero-trust runtime boundary for Google ADK (Go) ops agent"
 
 # --- 1. Static Filesystem Policy (Kernel Landlock LSM / VFS Mask) ---
 filesystem_policy:
@@ -26,7 +27,7 @@ filesystem_policy:
     - /bin
     - /etc
     - /proc
-    - ./agent
+    - ./bin
     - ./workspace/config
   read_write:
     - /tmp
@@ -46,12 +47,13 @@ process:
 
 # --- 2. Dynamic Network Policy (Default-Deny Egress) ---
 # Any destination host/port not explicitly listed below is blocked at the socket layer.
+# Notably, 127.0.0.1:9090 (/exfil) is NOT listed and is blocked by default_egress: deny.
 network_policies:
   default_egress: deny
 
   local_ollama_inference:
-    name: allow-local-ollama-only
-    description: "Permit ADK LiteLLM client to query local Ollama inference server; block all external/reporting endpoints"
+    name: allow-local-ollama-inference
+    description: "Permit Google ADK (Go) agent to query local Ollama inference server"
     endpoints:
       - host: 127.0.0.1
         port: 11434
@@ -67,10 +69,23 @@ network_policies:
           - allow:
               method: GET
               path: "/api/tags"
-    # Least privilege: only the Python interpreters the agent runs on may reach
-    # Ollama. Every other binary (curl, wget, nc, ...) stays at default_egress: deny.
     binaries:
-      - path: /usr/bin/python3
-      - path: /usr/bin/python3.14
-      - path: /usr/local/bin/python3
-      - path: /home/*/.venvs/bounded-boxer/bin/python3
+      - path: ./bin/bounded-boxer-agent
+
+  internal_ops_reporting:
+    name: allow-internal-ops-report-loopback
+    description: "Permit agent to submit sanitized operational diagnostics to internal loopback collector (:8080) while keeping external sinks (:9090) blocked"
+    endpoints:
+      - host: 127.0.0.1
+        port: 8080
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: "/report"
+          - allow:
+              method: POST
+              path: "/audit-event"
+    binaries:
+      - path: ./bin/bounded-boxer-agent
