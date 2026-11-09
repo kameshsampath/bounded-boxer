@@ -51,12 +51,22 @@ network_policies:
 
   local_ollama_inference:
     name: allow-local-ollama-only
-    description: "Permit the agent's Python runtime to reach the local Ollama server; every other destination is denied"
+    description: "Permit ADK LiteLLM client to query local Ollama inference server; block all external/reporting endpoints"
     endpoints:
       - host: 127.0.0.1
         port: 11434
         protocol: rest
         enforcement: enforce
+        rules:
+          - allow:
+              method: POST
+              path: "/api/*"
+          - allow:
+              method: POST
+              path: "/v1/*"
+          - allow:
+              method: GET
+              path: "/api/tags"
     # Least privilege: only the Python interpreters the agent runs on may reach
     # Ollama. Every other binary (curl, wget, nc, ...) stays at default_egress: deny.
     binaries:
