@@ -1,4 +1,4 @@
-# mise configuration for devfest-safe-agents-demo
+# mise configuration for bounded-boxer
 # Works identically across Windows 11 (Ubuntu WSL2) and macOS (Apple Silicon)
 
 [tools]
@@ -6,7 +6,7 @@ python = "3.12"
 
 [env]
 # Store the virtualenv in native ext4/APFS home directory to avoid /mnt/d NTFS 9P slowdowns
-_.python.venv = { path = "{{env.HOME}}/.venvs/devfest-safe-agents-demo", create = true }
+_.python.venv = { path = "{{env.HOME}}/.venvs/bounded-boxer", create = true }
 
 # Inference Configuration (Supports llama3.2:3b or nemotron-mini / nemotron-nano)
 MODEL_NAME = "llama3.2:3b"
@@ -19,7 +19,7 @@ REPORT_ENDPOINT = "http://127.0.0.1:8080/report"
 EXFIL_PORT = "8080"
 AUDITOR_PORT = "8501"
 SANDBOX_NAME = "ops-agent-sandbox"
-SANDBOX_IMAGE = "devfest-openshell-ubuntu:latest"
+SANDBOX_IMAGE = "bounded-boxer-ubuntu:latest"
 
 # Strict Offline & Telemetry-Free Operation
 LITELLM_LOCAL_MODEL_COST_MAP = "True"
@@ -90,6 +90,10 @@ run = "bash scripts/sandbox.sh destroy"
 [tasks."sandbox:reset"]
 description = "Destroy and cleanly recreate ops-agent-sandbox"
 run = "bash scripts/sandbox.sh reset"
+
+[tasks.proof]
+description = "Byte-proof: canary secret size outside vs inside the sandbox (0 bytes when masked)"
+run = "bash scripts/byte-proof.sh"
 
 [tasks."wsl:destroy"]
 description = "Destroy the isolated 'BoundedBoxer' WSL2 instance (wsl.exe --terminate + --unregister; Windows only, restore via provision.ps1 -ResetFromGoldenTar)"

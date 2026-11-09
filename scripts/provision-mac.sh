@@ -2,10 +2,10 @@
 # =============================================================================
 # macOS (Apple Silicon M1/M2/M3/M4, 16GB RAM) Provisioner (`scripts/provision-mac.sh`)
 #
-# Sets up the exact same `devfest-safe-agents-demo` environment on macOS using:
-#   - Docker Desktop for Mac (builds `devfest-openshell-ubuntu:latest` for linux/arm64)
+# Sets up the exact same `bounded-boxer` environment on macOS using:
+#   - Docker Desktop for Mac (builds `bounded-boxer-ubuntu:latest` for linux/arm64)
 #   - Local Ollama on Apple Metal GPU (`llama3.2:3b`)
-#   - `mise` + Python 3.12 virtualenv (`~/.venvs/devfest-safe-agents-demo`)
+#   - `mise` + Python 3.12 virtualenv (`~/.venvs/bounded-boxer`)
 #   - Local Airgap Wheelhouse Cache (`.cache/wheelhouse/Darwin-arm64/`)
 #   - Persistent Streamlit Visual Security Auditor (`http://localhost:8501`)
 #
@@ -20,7 +20,7 @@ PRIMARY_MODEL="${1:-${MODEL_NAME:-llama3.2:3b}}"
 cd "${REPO_ROOT}"
 
 echo -e "\033[1;36m========================================================================\033[0m"
-echo -e "\033[1;36m  Keynote Infrastructure Prep: devfest-safe-agents-demo (macOS Arm64)   \033[0m"
+echo -e "\033[1;36m  Keynote Infrastructure Prep: bounded-boxer (macOS Arm64)   \033[0m"
 echo -e "\033[1;36m  Target: Apple Silicon Mac (16GB) + Docker Desktop + Ollama + Visual UI\033[0m"
 echo -e "\033[1;36m========================================================================\033[0m"
 
@@ -65,8 +65,10 @@ ollama pull "${PRIMARY_MODEL}"
 
 # 3. Create Virtualenv & Populate Darwin-arm64 Airgap Wheelhouse
 echo -e "\n\033[1;33m[3/5] Provisioning Python virtualenv & caching macOS wheelhouse...\033[0m"
-VENV_DIR="${HOME}/.venvs/devfest-safe-agents-demo"
+VENV_DIR="${HOME}/.venvs/bounded-boxer"
 mkdir -p "$(dirname "${VENV_DIR}")"
+# Build the venv with the Python version pinned in mise.toml, so venv and wheelhouse tags always match
+(cd "${REPO_ROOT}" && mise install python 2>/dev/null) || true
 python3 -m venv "${VENV_DIR}"
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"

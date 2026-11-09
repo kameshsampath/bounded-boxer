@@ -7,7 +7,7 @@
 #       Uses Zero-Daemon Linux Kernel Bubblewrap (`bwrap`) + OpenShell Policy Hook
 #       (0 MB idle RAM, <20ms startup, kernel VFS binds /dev/null over gcp-sa-key.json).
 #   - On macOS Apple Silicon (`Darwin`):
-#       Uses Docker Desktop for Mac (`devfest-openshell-ubuntu:latest` container)
+#       Uses Docker Desktop for Mac (`bounded-boxer-ubuntu:latest` container)
 #       with read-only rootfs, cap-drop=ALL, masked gcp-sa-key.json, and default-deny
 #       network egress (routing Ollama via host.docker.internal:11434).
 #
@@ -27,9 +27,9 @@ POLICY_FILE="${REPO_ROOT}/2-governed/policy.yaml"
 DOCKERFILE="${REPO_ROOT}/2-governed/Dockerfile.sandbox"
 
 SANDBOX_NAME="${SANDBOX_NAME:-ops-agent-sandbox}"
-SANDBOX_IMAGE="${SANDBOX_IMAGE:-devfest-openshell-ubuntu:latest}"
+SANDBOX_IMAGE="${SANDBOX_IMAGE:-bounded-boxer-ubuntu:latest}"
 STATE_DIR="/tmp/openshell-sandbox-${SANDBOX_NAME}"
-VENV_DIR="${HOME}/.venvs/devfest-safe-agents-demo"
+VENV_DIR="${HOME}/.venvs/bounded-boxer"
 MODEL_NAME="${MODEL_NAME:-llama3.2:3b}"
 OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
 EXFIL_PORT="${EXFIL_PORT:-8080}"
@@ -262,7 +262,7 @@ cmd_status() {
 
 run_in_bwrap() {
     [[ -f "${STATE_DIR}/created_at" ]] || build_policy_enforcer
-    local auditor_state="${AUDITOR_STATE_FILE:-/tmp/devfest-auditor-state.json}"
+    local auditor_state="${AUDITOR_STATE_FILE:-/tmp/bounded-boxer-auditor-state.json}"
     touch "${auditor_state}" 2>/dev/null || true
 
     local bwrap_args=(
@@ -310,16 +310,13 @@ run_in_bwrap() {
     if command -v bwrap >/dev/null 2>&1; then
         bwrap "${bwrap_args[@]}" -- "$@"
     else
-        PATH="${VENV_DIR}/bin:${PATH}" \
-        PYTHONPATH="${STATE_DIR}/hook:${PYTHONPATH:-}" \
-        OPENSHELL_POLICY_FILE="${POLICY_FILE}" \
-        OPENSHELL_REPO_ROOT="${REPO_ROOT}" \
-        OPS_WORKSPACE_DIR="${REPO_ROOT}/workspace" \
-        MODEL_NAME="${MODEL_NAME}" \
-        OLLAMA_HOST="${OLLAMA_HOST}" \
-        REPORT_ENDPOINT="http://127.0.0.1:${EXFIL_PORT}/report" \
-        AGENT_RUN_MODE="governed" \
-        "$@"
+        # bwrap is a standard package installed by provision.ps1/provision-mac.sh.
+        # Never run "governed" without kernel namespaces: fail loudly instead of
+        # silently degrading to userspace-only hooks.
+        echo "[ERROR] bwrap (bubblewrap) not found. The governed sandbox requires it." >&2
+        echo "        Install with: sudo apt-get install -y bubblewrap" >&2
+        echo "        (scripts/provision.ps1 and scripts/provision-mac.sh install it automatically)" >&2
+        exit 1
     fi
 }
 

@@ -23,9 +23,9 @@ ARCH_NAME="$(uname -m)"
 WHEELHOUSE_DIR="${REPO_ROOT}/.cache/wheelhouse/${OS_NAME}-${ARCH_NAME}"
 
 # Activate virtualenv if available
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
     # shellcheck disable=SC1091
-    source "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate"
+    source "${HOME}/.venvs/bounded-boxer/bin/activate"
 fi
 
 ACTION="${1:-status}"

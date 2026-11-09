@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Standalone HTTP Exfiltration Sink & Audit Telemetry Server (`auditor/sink.py`)
-Listens on 0.0.0.0:8080 and writes real-time state to `/tmp/devfest-auditor-state.json`
+Listens on 0.0.0.0:8080 and writes real-time state to `/tmp/bounded-boxer-auditor-state.json`
 which is rendered live by the Streamlit Visual Security Auditor (`auditor/app.py` on :8501).
 """
 
@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-STATE_FILE = Path(os.environ.get("AUDITOR_STATE_FILE", "/tmp/devfest-auditor-state.json"))
+STATE_FILE = Path(os.environ.get("AUDITOR_STATE_FILE", "/tmp/bounded-boxer-auditor-state.json"))
 EXFIL_PORT = int(os.environ.get("EXFIL_PORT", "8080"))
 STATE_LOCK = threading.Lock()
 
@@ -118,7 +118,7 @@ def record_event(mode: str, event_type: str, detail: str, payload: Any = None) -
         leaked = (
             "PRIVATE KEY" in raw_str
             or "service_account" in raw_str
-            or "devfest-prod-payments" in raw_str
+            or "prod-payments" in raw_str
             or "secrets/gcp-sa-key.json" in raw_str
             or "secrets/gcp-sa-key.json" in state["baseline"].get("files_read", [])
         )

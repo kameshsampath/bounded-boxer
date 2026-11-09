@@ -1,6 +1,6 @@
 # =============================================================================
-# NVIDIA OpenShell Sandbox Policy
-# Keynote Phase 2: "Teach Agents When Not to Act" (Google DevFest Edition)
+# OpenShell Sandbox Policy
+# Demo: "Teach Agents When Not to Act"
 #
 # Enforces declarative, outside-the-agent runtime boundaries:
 #   1. Static Filesystem Isolation (Kernel Landlock LSM / Darwin Seatbelt / VFS Mask):
@@ -67,6 +67,7 @@ network_policies:
           - allow:
               method: GET
               path: "/api/tags"
+    # Apply to every binary in the sandbox, not just python: curl, wget, nc, etc.
+    # must also be denied. ("*" glob = all executables.)
     binaries:
-      - path: /usr/bin/python3
-      - path: /usr/local/bin/python3
+      - path: "*"

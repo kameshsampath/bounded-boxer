@@ -30,7 +30,7 @@ import streamlit as st
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 POLICY_PATH = REPO_ROOT / "2-governed" / "policy.yaml"
-STATE_FILE = Path(os.environ.get("AUDITOR_STATE_FILE", "/tmp/devfest-auditor-state.json"))
+STATE_FILE = Path(os.environ.get("AUDITOR_STATE_FILE", "/tmp/bounded-boxer-auditor-state.json"))
 EXFIL_PORT = int(os.environ.get("EXFIL_PORT", "8080"))
 STATE_LOCK = threading.Lock()
 
@@ -128,7 +128,7 @@ def record_event(mode: str, event_type: str, detail: str, payload: Any = None) -
         leaked = (
             "PRIVATE KEY" in raw_str
             or "service_account" in raw_str
-            or "devfest-prod-payments" in raw_str
+            or "prod-payments" in raw_str
             or "secrets/gcp-sa-key.json" in raw_str
             or "secrets/gcp-sa-key.json" in state["baseline"].get("files_read", [])
         )

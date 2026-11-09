@@ -1,5 +1,5 @@
 # =============================================================================
-# Offline-Ready Ubuntu OpenShell Sandbox Image (devfest-openshell-ubuntu:latest)
+# Offline-Ready Ubuntu OpenShell Sandbox Image (bounded-boxer-ubuntu:latest)
 # Used by Docker Desktop on macOS (Apple Silicon arm64) or when SANDBOX_ENGINE=docker.
 # Pre-bakes Python 3.12, Google ADK, LiteLLM, and non-root 'sandbox' user.
 # =============================================================================

@@ -3,7 +3,7 @@
 # Safe Agents Demo — Cross-OS Prerequisite Doctor (`scripts/doctor.sh`)
 #
 # Non-destructively inspects all required and optional tools for
-# `devfest-safe-agents-demo` across Windows 11 (Ubuntu WSL2) and macOS (arm64).
+# `bounded-boxer` across Windows 11 (Ubuntu WSL2) and macOS (arm64).
 # Outputs a structured status checklist and exact remediation commands.
 # =============================================================================
 set -euo pipefail
@@ -13,9 +13,9 @@ REPO_ROOT="$(cd -P "${SCRIPT_DIR}/../../../.." && pwd -P)"
 cd "${REPO_ROOT}"
 
 export PATH="${HOME}/.local/bin:${HOME}/.local/share/mise/shims:${PATH}"
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
     # shellcheck disable=SC1091
-    source "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate"
+    source "${HOME}/.venvs/bounded-boxer/bin/activate"
 fi
 
 OS_NAME="$(uname -s)"
@@ -75,10 +75,10 @@ echo -e "\n\033[1;37m2. Runtime Sandbox Engine\033[0m"
 if [[ "${OS_NAME}" == "Darwin" ]]; then
     if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         ok "Docker Desktop for Mac is running ($(docker --version | head -n1))"
-        if docker image inspect devfest-openshell-ubuntu:latest >/dev/null 2>&1; then
-            ok "Offline Ubuntu sandbox image ('devfest-openshell-ubuntu:latest') is built"
+        if docker image inspect bounded-boxer-ubuntu:latest >/dev/null 2>&1; then
+            ok "Offline Ubuntu sandbox image ('bounded-boxer-ubuntu:latest') is built"
         else
-            warn "Sandbox container image 'devfest-openshell-ubuntu:latest' not built yet" \
+            warn "Sandbox container image 'bounded-boxer-ubuntu:latest' not built yet" \
                  "Build macOS sandbox image: bash scripts/sandbox.sh build"
         fi
     else
@@ -117,7 +117,7 @@ fi
 
 # 4. Virtualenv, ADK Packages & Offline Airgap Wheelhouse
 echo -e "\n\033[1;37m4. Python Virtualenv & Airgap Wheelhouse Cache\033[0m"
-VENV_DIR="${HOME}/.venvs/devfest-safe-agents-demo"
+VENV_DIR="${HOME}/.venvs/bounded-boxer"
 if [[ -f "${VENV_DIR}/bin/python3" ]]; then
     ok "Virtualenv exists at ${VENV_DIR}"
     if "${VENV_DIR}/bin/python3" -c "import google.adk, litellm, mcp, requests, rich, yaml, streamlit" >/dev/null 2>&1; then
@@ -128,7 +128,7 @@ if [[ -f "${VENV_DIR}/bin/python3" ]]; then
     fi
 else
     missing "Virtualenv not created at ${VENV_DIR}" \
-            "Create venv & install deps: python3 -m venv ~/.venvs/devfest-safe-agents-demo && bash scripts/cache-deps.sh install"
+            "Create venv & install deps: python3 -m venv ~/.venvs/bounded-boxer && bash scripts/cache-deps.sh install"
 fi
 
 WHEELHOUSE_DIR="${REPO_ROOT}/.cache/wheelhouse/${OS_NAME}-${ARCH_NAME}"

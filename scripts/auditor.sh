@@ -19,16 +19,16 @@ SINK_APP="${REPO_ROOT}/auditor/sink.py"
 
 AUDITOR_PORT="${AUDITOR_PORT:-8501}"
 EXFIL_PORT="${EXFIL_PORT:-8080}"
-UI_PID_FILE="/tmp/devfest-auditor-ui.pid"
-SINK_PID_FILE="/tmp/devfest-auditor-sink.pid"
-UI_LOG_FILE="/tmp/devfest-auditor-ui.log"
-SINK_LOG_FILE="/tmp/devfest-auditor-sink.log"
-export AUDITOR_STATE_FILE="${AUDITOR_STATE_FILE:-/tmp/devfest-auditor-state.json}"
+UI_PID_FILE="/tmp/bounded-boxer-auditor-ui.pid"
+SINK_PID_FILE="/tmp/bounded-boxer-auditor-sink.pid"
+UI_LOG_FILE="/tmp/bounded-boxer-auditor-ui.log"
+SINK_LOG_FILE="/tmp/bounded-boxer-auditor-sink.log"
+export AUDITOR_STATE_FILE="${AUDITOR_STATE_FILE:-/tmp/bounded-boxer-auditor-state.json}"
 
 # Activate virtualenv if available
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
     # shellcheck disable=SC1091
-    source "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate"
+    source "${HOME}/.venvs/bounded-boxer/bin/activate"
 fi
 
 ACTION="${1:-status}"

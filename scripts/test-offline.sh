@@ -17,9 +17,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
 # Activate virtualenv if present
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
     # shellcheck disable=SC1091
-    source "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate"
+    source "${HOME}/.venvs/bounded-boxer/bin/activate"
 fi
 
 MODEL_NAME="${MODEL_NAME:-llama3.2:3b}"
@@ -46,7 +46,7 @@ fail() {
 }
 
 echo -e "\033[1;36m========================================================================\033[0m"
-echo -e "\033[1;36m  PRE-FLIGHT OFFLINE VERIFICATION: devfest-safe-agents-demo             \033[0m"
+echo -e "\033[1;36m  PRE-FLIGHT OFFLINE VERIFICATION: bounded-boxer             \033[0m"
 echo -e "\033[1;36m  Platform: ${OS_NAME} (${ARCH_NAME})                                   \033[0m"
 echo -e "\033[1;36m========================================================================\033[0m"
 
@@ -76,8 +76,8 @@ echo -e "\n\033[1;37m[2/6] Checking OpenShell Sandbox Engine...\033[0m"
 if [[ "${OS_NAME}" == "Darwin" ]] || [[ "${SANDBOX_ENGINE:-}" == "docker" ]]; then
     if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         pass "Docker Desktop is active for container sandboxing"
-        if docker image inspect devfest-openshell-ubuntu:latest >/dev/null 2>&1; then
-            pass "Sandbox image 'devfest-openshell-ubuntu:latest' is cached locally"
+        if docker image inspect bounded-boxer-ubuntu:latest >/dev/null 2>&1; then
+            pass "Sandbox image 'bounded-boxer-ubuntu:latest' is cached locally"
         else
             warn "Sandbox image not built yet (run 'mise run sandbox:build')"
         fi

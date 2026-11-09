@@ -77,8 +77,8 @@ Use this reference when `scripts/doctor.sh` or `scripts/test-offline.sh` reports
 ### A. Rebuilding the Virtualenv with Zero Internet (Venue Airgap Mode)
 - If `.cache/wheelhouse/$(uname -s)-$(uname -m)/` is populated:
   ```bash
-  python3 -m venv ~/.venvs/devfest-safe-agents-demo
-  source ~/.venvs/devfest-safe-agents-demo/bin/activate
+  python3 -m venv ~/.venvs/bounded-boxer
+  source ~/.venvs/bounded-boxer/bin/activate
   bash scripts/cache-deps.sh install
   ```
 

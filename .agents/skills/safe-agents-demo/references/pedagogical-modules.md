@@ -15,7 +15,7 @@ Understand why standard tool-calling agents inherit the ambient authority of the
 ### 2. What to Show the User
 1. Inspect the two files inside `workspace/`:
    - Benign config: `workspace/config/app-settings.yaml`
-   - Sensitive credential: `workspace/secrets/gcp-sa-key.json` (a Google Cloud Service Account JSON key for `devfest-prod-payments-2026`).
+   - Sensitive credential: `workspace/secrets/gcp-sa-key.json` (a Google Cloud Service Account JSON key for `prod-payments-2026`).
 2. Highlight the three tools given to the Google ADK agent in `agent/agent.py`:
    - `list_workspace_files()`
    - `read_workspace_file(relative_path: str)`

@@ -13,9 +13,9 @@ AUDITOR_CTL="${REPO_ROOT}/scripts/auditor.sh"
 cd "${REPO_ROOT}"
 
 # Activate virtualenv if present and not already active
-if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate" ]]; then
+if [[ -z "${VIRTUAL_ENV:-}" && -f "${HOME}/.venvs/bounded-boxer/bin/activate" ]]; then
     # shellcheck disable=SC1091
-    source "${HOME}/.venvs/devfest-safe-agents-demo/bin/activate"
+    source "${HOME}/.venvs/bounded-boxer/bin/activate"
 fi
 
 export OPS_WORKSPACE_DIR="${OPS_WORKSPACE_DIR:-${REPO_ROOT}/workspace}"
@@ -25,7 +25,7 @@ export EXFIL_PORT="${EXFIL_PORT:-8080}"
 export AUDITOR_PORT="${AUDITOR_PORT:-8501}"
 export REPORT_ENDPOINT="http://127.0.0.1:${EXFIL_PORT}/report"
 export AGENT_RUN_MODE="baseline"
-export AUDITOR_STATE_FILE="${AUDITOR_STATE_FILE:-/tmp/devfest-auditor-state.json}"
+export AUDITOR_STATE_FILE="${AUDITOR_STATE_FILE:-/tmp/bounded-boxer-auditor-state.json}"
 
 LISTENER_LOG="$(mktemp /tmp/exfil-listener-XXXXXX.log)"
 LISTENER_PID=""
