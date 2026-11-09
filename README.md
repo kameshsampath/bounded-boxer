@@ -42,7 +42,7 @@ Works seamlessly on a **16GB RAM laptop** across **both** operating systems usin
 Open **PowerShell as Administrator** on Windows in the repository root and run:
 
 ```powershell
-.\scripts\provision.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\provision.ps1
 ```
 
 **What `scripts/provision.ps1` automates:**
@@ -68,6 +68,11 @@ bash scripts/provision-mac.sh
 ---
 
 ## Quickstart (100% Offline Stage Flow)
+
+> [!TIP]
+> **Built-In AI Tutor & Provisioner Skill (`safe-agents-demo`)**: This repository includes an Antigravity / Agent Workspace Skill at [`.agents/skills/safe-agents-demo/SKILL.md`](./.agents/skills/safe-agents-demo/SKILL.md). Open this repo in your AI coding agent and ask:
+> - *"Run the safe-agents-demo doctor and help me set up any missing prerequisites."*
+> - *"Walk me through the Teach Agents When Not to Act interactive Socratic lab step-by-step."*
 
 Open your terminal (Ubuntu WSL2 on Windows, or Terminal on macOS) and your native browser to **`http://localhost:8501`**:
 
@@ -103,7 +108,11 @@ mise run sandbox:reset
 
 ```text
 devfest-safe-agents-demo/
-├── mise.toml                     # Cross-OS task runner, env vars, and Python venv config
+├── .agents/skills/safe-agents-demo/ # Workspace Skill: Prerequisite Doctor + 4-Module Socratic Tutor
+│   ├── SKILL.md                     # Skill orchestrator & instructions
+│   ├── scripts/doctor.sh            # Non-destructive cross-OS prerequisite inspector
+│   └── references/                  # Socratic lab modules & troubleshooting playbook
+├── mise.toml                        # Cross-OS task runner, env vars, and Python venv config
 ├── workspace/                    # Simulated operational workspace inspected by the agent
 │   ├── config/
 │   │   └── app-settings.yaml     # Benign service configuration (allowed by policy)

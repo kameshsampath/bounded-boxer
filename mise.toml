@@ -27,6 +27,10 @@ ADK_DISABLE_TELEMETRY = "1"
 DO_NOT_TRACK = "1"
 PYTHONUNBUFFERED = "1"
 
+[tasks.doctor]
+description = "Run the non-destructive Prerequisite & Environment Doctor (used by the safe-agents-demo skill)"
+run = "bash .agents/skills/safe-agents-demo/scripts/doctor.sh"
+
 [tasks.install]
 description = "Install Python dependencies (uses local airgap wheelhouse if cached)"
 run = "bash scripts/cache-deps.sh install"
