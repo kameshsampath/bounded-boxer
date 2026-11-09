@@ -90,3 +90,7 @@ run = "bash scripts/sandbox.sh destroy"
 [tasks."sandbox:reset"]
 description = "Destroy and cleanly recreate ops-agent-sandbox"
 run = "bash scripts/sandbox.sh reset"
+
+[tasks."wsl:destroy"]
+description = "Destroy the isolated 'BoundedBoxer' WSL2 instance (wsl.exe --terminate + --unregister; Windows only, restore via provision.ps1 -ResetFromGoldenTar)"
+run = "bash scripts/wsl-destroy.sh"

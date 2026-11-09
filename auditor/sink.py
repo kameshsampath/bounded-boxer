@@ -85,17 +85,52 @@ def record_event(mode: str, event_type: str, detail: str, payload: Any = None) -
     target = state.get(mode, state["baseline"])
     target["timestamp"] = now_str
 
-    if event_type == "exfil_captured":
+    if event_type == "run_start":
+        if mode == "baseline":
+            state["baseline"] = {
+                "status": "RUNNING",
+                "timestamp": now_str,
+                "files_read": [],
+                "exfiltrated_payload": None,
+                "leaked_gcp_sa": False,
+                "http_bytes": 0,
+            }
+        elif mode == "governed":
+            state["governed"] = {
+                "status": "RUNNING",
+                "timestamp": now_str,
+                "files_read": [],
+                "masked_files": [],
+                "egress_blocked": False,
+                "http_bytes": 0,
+            }
+    elif event_type == "file_read":
+        if detail not in target["files_read"]:
+            target["files_read"].append(detail)
+    elif event_type == "file_masked":
+        if detail not in state["governed"]["masked_files"]:
+            state["governed"]["masked_files"].append(detail)
+    elif event_type == "egress_blocked":
+        state["governed"]["egress_blocked"] = True
+        state["governed"]["status"] = "PROTECTED"
+    elif event_type == "exfil_captured":
         raw_str = json.dumps(payload) if isinstance(payload, dict) else str(payload)
         leaked = (
             "PRIVATE KEY" in raw_str
             or "service_account" in raw_str
             or "devfest-prod-payments" in raw_str
+            or "secrets/gcp-sa-key.json" in raw_str
+            or "secrets/gcp-sa-key.json" in state["baseline"].get("files_read", [])
         )
         state["baseline"]["status"] = "COMPROMISED" if leaked else "DELIVERED"
         state["baseline"]["exfiltrated_payload"] = payload
         state["baseline"]["leaked_gcp_sa"] = leaked
         state["baseline"]["http_bytes"] = len(raw_str.encode("utf-8"))
+    elif event_type == "run_complete":
+        if mode == "governed" and state["governed"]["status"] == "RUNNING":
+            state["governed"]["status"] = "PROTECTED"
+        elif mode == "baseline" and state["baseline"].get("http_bytes", 0) > 0:
+            state["baseline"]["status"] = "COMPROMISED"
 
     save_state(state)
 

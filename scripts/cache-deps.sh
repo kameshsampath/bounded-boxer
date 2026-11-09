@@ -40,13 +40,25 @@ cmd_download() {
     echo -e "\033[1;32m✓ Cached ${count} wheel files in ${WHEELHOUSE_DIR} (100% Airgap Ready!).\033[0m"
 }
 
+wheelhouse_has_wheels() {
+    [[ -d "${WHEELHOUSE_DIR}" ]] && [[ -n "$(find "${WHEELHOUSE_DIR}" -name "*.whl" -print -quit 2>/dev/null)" ]]
+}
+
 cmd_install() {
-    if [[ -d "${WHEELHOUSE_DIR}" ]] && [[ -n "$(find "${WHEELHOUSE_DIR}" -name "*.whl" -print -quit 2>/dev/null)" ]]; then
+    # Dry-run first: a wheelhouse built for another CPython (e.g. cp312 wheels on
+    # Python 3.14) makes --no-index resolution fail with "from versions: none".
+    # In that case refresh the cache with the active interpreter before installing.
+    if wheelhouse_has_wheels \
+        && pip install --dry-run --quiet --no-index --find-links="${WHEELHOUSE_DIR}" -r "${REQ_FILE}" >/dev/null 2>&1; then
         echo -e "\033[1;32m⚡ Installing Python dependencies from local airgap wheelhouse (${WHEELHOUSE_DIR})...\033[0m"
         pip install --no-index --find-links="${WHEELHOUSE_DIR}" -r "${REQ_FILE}"
         echo -e "\033[1;32m✓ Offline installation complete (zero internet calls).\033[0m"
     else
-        echo -e "\033[1;33m🌐 Local wheelhouse empty; installing from PyPI and populating cache...\033[0m"
+        if wheelhouse_has_wheels; then
+            echo -e "\033[1;33m⚠ Cached wheels are incompatible with $(python3 -V 2>&1) (e.g. cp312 wheels on a newer interpreter); refreshing wheelhouse for this interpreter...\033[0m"
+        else
+            echo -e "\033[1;33m🌐 Local wheelhouse empty; installing from PyPI and populating cache...\033[0m"
+        fi
         cmd_download
         pip install --no-index --find-links="${WHEELHOUSE_DIR}" -r "${REQ_FILE}"
     fi
